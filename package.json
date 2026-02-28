@@ -1,0 +1,17 @@
+{
+  "name": "open-blueprint-vault",
+  "version": "0.0.1",
+  "description": "Engineering Drawing Vault",
+  "scripts": {
+    "dev:backend": "cd backend && npm run start:dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "up": "docker compose up --build -d",
+    "down": "docker compose down",
+    "infra:up": "docker compose up --build --pull always -d db minio",
+    "infra:down": "docker compose down",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

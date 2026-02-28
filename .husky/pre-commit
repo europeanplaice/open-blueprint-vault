@@ -1,0 +1,9 @@
+echo "Running tests before commit..."
+
+echo ">> Backend (NestJS)"
+(cd backend && npm test -- --forceExit) || exit 1
+
+echo ">> Frontend (Next.js)"
+(cd frontend && npm test -- --watchAll=false --ci) || exit 1
+
+echo "All tests passed!"

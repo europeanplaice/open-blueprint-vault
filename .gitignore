@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+dist/
+.next/
+*.log
+.DS_Store
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/
+.meili-migration/

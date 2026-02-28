@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DrawingRelationType {
+  RELATED
+  PARENT
+  CHILD
+  SUPERSEDES
+}
+
+model Drawing {
+  id            String   @id @default(cuid())
+  drawingNumber String   // Drawing number
+  name          String? // Part name
+  fileUrl       String // File storage location (MinIO/S3)
+  status        String   @default("PENDING") // Processing status (PENDING, PROCESSING, COMPLETED, FAILED)
+  metadata      Json? // Optional metadata (including customer-specific keys such as order/work numbers)
+  metadataSources Json? // Metadata source information (currently "HUMAN")
+  revision      String? // Current revision number (free text)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  relationsFrom DrawingRelation[] @relation("RelationFrom")
+  relationsTo   DrawingRelation[] @relation("RelationTo")
+  revisions     DrawingRevision[]
+
+  @@index([createdAt])
+}
+
+model DrawingRevision {
+  id        String   @id @default(cuid())
+  drawingId String
+  revision  String // Revision number
+  fileUrl   String // PDF file URL for this revision
+  reason    String? // Reason for change
+  createdAt DateTime @default(now())
+
+  drawing Drawing @relation(fields: [drawingId], references: [id], onDelete: Cascade)
+
+  @@index([drawingId])
+  @@index([drawingId, createdAt])
+}
+
+model DrawingRelation {
+  id            String              @id @default(cuid())
+  fromDrawingId String
+  toDrawingId   String
+  relationType  DrawingRelationType
+  createdAt     DateTime            @default(now())
+
+  fromDrawing Drawing @relation("RelationFrom", fields: [fromDrawingId], references: [id], onDelete: Cascade)
+  toDrawing   Drawing @relation("RelationTo", fields: [toDrawingId], references: [id], onDelete: Cascade)
+
+  @@unique([fromDrawingId, toDrawingId, relationType])
+  @@index([fromDrawingId])
+  @@index([toDrawingId])
+}

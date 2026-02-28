@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root, [data-theme='dark'] {
+  --bg-base: #161B22;
+  --bg-surface: #22272E;
+  --bg-elevated: #2D333B;
+  --border: #444C56;
+  --border-mid: #555E69;
+  --accent: #F0A030;
+  --accent-dim: rgba(240, 160, 48, 0.08);
+  --accent-glow: rgba(240, 160, 48, 0.25);
+  --blue: #4B9EFF;
+  --blue-glow: rgba(75, 158, 255, 0.25);
+  --blue-dim: rgba(75, 158, 255, 0.1);
+  --blue-border: rgba(75, 158, 255, 0.22);
+  --text-primary: #F0F6FC;
+  --text-secondary: #8B949E;
+  --text-muted: #6E7681;
+  --header-bg: rgba(34, 39, 46, 0.9);
+  --grid-color: rgba(75, 158, 255, 0.028);
+
+  /* Status Colors */
+  --status-success: #4BFF64;
+  --status-success-bg: rgba(75, 255, 100, 0.1);
+  --status-success-border: rgba(75, 255, 100, 0.22);
+
+  --status-processing: #4B9EFF;
+  --status-processing-bg: rgba(75, 158, 255, 0.1);
+  --status-processing-border: rgba(75, 158, 255, 0.22);
+
+  --status-error: #FF4B4B;
+  --status-error-bg: rgba(255, 75, 75, 0.1);
+  --status-error-border: rgba(255, 75, 75, 0.22);
+
+  --status-wait: #8B949E;
+  --status-wait-bg: rgba(139, 148, 158, 0.1);
+  --status-wait-border: rgba(139, 148, 158, 0.22);
+
+  /* Overlays */
+  --card-overlay-bg: rgba(22, 27, 34, 0.9);
+  --card-overlay-fg: #F0F6FC;
+  --card-overlay-border: var(--border);
+
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg-base: #F3F4F6;
+  --bg-surface: #FFFFFF;
+  --bg-elevated: #F9FAFB;
+  --border: #E5E7EB;
+  --border-mid: #D1D5DB;
+  --accent: #D97706;
+  --accent-dim: rgba(217, 119, 6, 0.08);
+  --accent-glow: rgba(217, 119, 6, 0.25);
+  --blue: #0969DA;
+  --blue-glow: rgba(9, 105, 218, 0.25);
+  --blue-dim: rgba(9, 105, 218, 0.1);
+  --blue-border: rgba(9, 105, 218, 0.22);
+  --text-primary: #111827;
+  --text-secondary: #4B5563;
+  --text-muted: #6B7280;
+  --header-bg: rgba(255, 255, 255, 0.9);
+  --grid-color: rgba(0, 0, 0, 0.04);
+
+  /* Status Colors - High Contrast */
+  --status-success: #1a7f37;
+  --status-success-bg: #dafbe1;
+  --status-success-border: rgba(26, 127, 55, 0.2);
+
+  --status-processing: #0969da;
+  --status-processing-bg: #ddf4ff;
+  --status-processing-border: rgba(9, 105, 218, 0.2);
+
+  --status-error: #cf222e;
+  --status-error-bg: #ffebe9;
+  --status-error-border: rgba(207, 34, 46, 0.2);
+
+  --status-wait: #6e7781;
+  --status-wait-bg: #eaeef2;
+  --status-wait-border: rgba(110, 119, 129, 0.2);
+
+  /* Overlays - Light Mode Friendly */
+  --card-overlay-bg: rgba(255, 255, 255, 0.95);
+  --card-overlay-fg: #1F2937;
+  --card-overlay-border: var(--border);
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background-color: var(--bg-base);
+  background-image:
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 44px 44px;
+  color: var(--text-primary);
+  font-family: var(--font-body, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif);
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseAccent {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+  50%       { box-shadow: 0 0 0 8px transparent; }
+}
+
+@keyframes pulseBlue {
+  0%, 100% { box-shadow: 0 0 0 0 var(--blue-glow); }
+  50%       { box-shadow: 0 0 0 8px transparent; }
+}
