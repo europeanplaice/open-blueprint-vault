@@ -22,9 +22,16 @@ for (const candidate of shellCandidates) {
   }
 }
 
+let shBin: string | null = null;
+const shProbe = spawnSync('sh', ['-c', 'echo 1'], { encoding: 'utf8' });
+if (shProbe.status === 0) {
+  shBin = 'sh';
+}
+
 const runIntegration = process.env.RUN_MANUAL_SCRIPT_INTEGRATION === '1';
 const describeIfPowerShell =
   powerShellBin && runIntegration ? describe : describe.skip;
+const describeIfSh = shBin && runIntegration ? describe : describe.skip;
 
 function createMockDockerBin(binDir: string): string {
   const logFile = path.join(binDir, 'docker.log');
@@ -46,11 +53,11 @@ if (logFile) {
 }
 
 const fail = (msg) => {
-  process.stderr.write(msg + '\\\\n');
+  process.stderr.write(msg + '\\n');
   process.exit(1);
 };
 
-const isContainerRef = (value) => /^[^\\\\/]+:\\\\//.test(value);
+const isContainerRef = (value) => /^[^\\\\/]+:\\//.test(value);
 
 if (args[0] !== 'compose') {
   process.exit(0);
@@ -136,6 +143,28 @@ function runPwshScript(
   );
 }
 
+function runShScript(
+  scriptPath: string,
+  scriptArgs: string[],
+  mockBinDir: string,
+  logFile: string,
+) {
+  const pathSep = process.platform === 'win32' ? ';' : ':';
+  return spawnSync(
+    shBin as string,
+    [scriptPath, ...scriptArgs],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MOCK_DOCKER_LOG: logFile,
+        PATH: `${mockBinDir}${pathSep}${process.env.PATH ?? ''}`,
+      },
+    },
+  );
+}
+
 function createBackupFixture(dir: string) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'db.dump'), 'db', 'utf8');
@@ -143,7 +172,7 @@ function createBackupFixture(dir: string) {
   fs.writeFileSync(path.join(dir, '.env'), 'KEY=value\n', 'utf8');
 }
 
-describeIfPowerShell('Manual backup/restore scripts', () => {
+describeIfPowerShell('Manual backup/restore scripts (PowerShell)', () => {
   let tempRoot: string;
   let mockBinDir: string;
   let logFile: string;
@@ -211,6 +240,91 @@ describeIfPowerShell('Manual backup/restore scripts', () => {
     const combined = `${result.stdout}\n${result.stderr}`;
     const log = fs.readFileSync(logFile, 'utf8');
 
+    expect(result.status).toBe(0);
+    expect(log).toContain('compose cp');
+    expect(log).toContain('db:/tmp/open-blueprint-vault.dump');
+    expect(log).toContain('pg_restore');
+    expect(log).toContain('compose start backend frontend');
+    expect(combined).toContain('Restore completed');
+  });
+});
+
+describeIfSh('Manual backup/restore scripts (sh)', () => {
+  let tempRoot: string;
+  let mockBinDir: string;
+  let logFile: string;
+
+  beforeEach(() => {
+    tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'obv-script-test-sh-'));
+    mockBinDir = path.join(tempRoot, 'mock-bin');
+    fs.mkdirSync(mockBinDir, { recursive: true });
+    logFile = createMockDockerBin(mockBinDir);
+  });
+
+  afterEach(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  it('manual-backup.sh creates expected artifacts and starts services again', () => {
+    const backupRoot = path.join(tempRoot, 'backups');
+    const script = path.join(repoRoot, 'scripts', 'manual-backup.sh');
+
+    const result = runShScript(script, [backupRoot], mockBinDir, logFile);
+    const combined = `${result.stdout}\n${result.stderr}`;
+
+    if (result.status !== 0) {
+      console.log('--- STDOUT ---\n', result.stdout);
+      console.log('--- STDERR ---\n', result.stderr);
+    }
+    expect(result.status).toBe(0);
+    const backups = fs.readdirSync(backupRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
+    expect(backups).toHaveLength(1);
+
+    const outDir = path.join(backupRoot, backups[0].name);
+    expect(fs.existsSync(path.join(outDir, 'db.dump'))).toBe(true);
+    expect(fs.existsSync(path.join(outDir, 'minio_data.tar.gz'))).toBe(true);
+    expect(fs.existsSync(path.join(outDir, 'SHA256SUMS.txt'))).toBe(true);
+
+    const log = fs.readFileSync(logFile, 'utf8');
+    const stopAt = log.indexOf('compose stop frontend backend');
+    const startAt = log.indexOf('compose start backend frontend');
+    expect(stopAt).toBeGreaterThanOrEqual(0);
+    expect(startAt).toBeGreaterThan(stopAt);
+    expect(combined).toContain('Backup completed');
+  });
+
+  it('manual-restore.sh fails without --force', () => {
+    const fixture = path.join(tempRoot, 'fixture');
+    createBackupFixture(fixture);
+    const script = path.join(repoRoot, 'scripts', 'manual-restore.sh');
+
+    const result = runShScript(script, [fixture], mockBinDir, logFile);
+    const combined = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).not.toBe(0);
+    expect(combined).toContain('--force');
+    const log = fs.readFileSync(logFile, 'utf8');
+    expect(log.trim()).toBe('');
+  });
+
+  it('manual-restore.sh runs restore flow with --force', () => {
+    const fixture = path.join(tempRoot, 'fixture');
+    createBackupFixture(fixture);
+    const script = path.join(repoRoot, 'scripts', 'manual-restore.sh');
+
+    const result = runShScript(
+      script,
+      [fixture, '--force', '--restore-env'],
+      mockBinDir,
+      logFile,
+    );
+    const combined = `${result.stdout}\n${result.stderr}`;
+    const log = fs.readFileSync(logFile, 'utf8');
+
+    if (result.status !== 0) {
+      console.log('--- STDOUT ---\n', result.stdout);
+      console.log('--- STDERR ---\n', result.stderr);
+    }
     expect(result.status).toBe(0);
     expect(log).toContain('compose cp');
     expect(log).toContain('db:/tmp/open-blueprint-vault.dump');
