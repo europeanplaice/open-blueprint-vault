@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSocket } from '../components/SocketProvider';
 import { DrawingRow } from '../components/DrawingRow';
 import { DrawingGrid } from '../components/DrawingGrid';
 import { EditDrawingModal } from '../components/EditDrawingModal';
@@ -18,7 +17,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function Home() {
   const router = useRouter();
-  const socket = useSocket();
   const [drawings, setDrawings] = useState<Drawing[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -54,43 +52,6 @@ export default function Home() {
   useEffect(() => {
     fetchDrawings();
   }, [fetchDrawings]);
-
-  // WebSocket event listeners
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleDrawingCreated = (newDrawing: Drawing) => {
-      // Add new drawing to the top of the list (or re-fetch)
-      // This simplified approach updates local state, but with pagination
-      // it is usually better to only do this on page 1.
-      if (page === 1) {
-        setDrawings((prev) => [newDrawing, ...prev].slice(0, 24));
-      } else {
-        // On other pages, we could show a notification or trigger a refetch.
-        // Keeping behavior simple here.
-      }
-    };
-
-    const handleDrawingUpdated = (updatedDrawing: Drawing) => {
-      setDrawings((prev) =>
-        prev.map((d) => (d.id === updatedDrawing.id ? updatedDrawing : d))
-      );
-    };
-
-    const handleDrawingDeleted = ({ id }: { id: string }) => {
-      setDrawings((prev) => prev.filter((d) => d.id !== id));
-    };
-
-    socket.on('drawing.created', handleDrawingCreated);
-    socket.on('drawing.updated', handleDrawingUpdated);
-    socket.on('drawing.deleted', handleDrawingDeleted);
-
-    return () => {
-      socket.off('drawing.created', handleDrawingCreated);
-      socket.off('drawing.updated', handleDrawingUpdated);
-      socket.off('drawing.deleted', handleDrawingDeleted);
-    };
-  }, [socket, page]);
 
   // Debounce input to update searchQuery
   useEffect(() => {

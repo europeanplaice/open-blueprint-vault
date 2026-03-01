@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { FileDropzone } from './FileDropzone';
+import { DRAWING_FILE_EXTENSIONS_REGEX } from '../utils/fileType';
 
 interface UploadDrawingModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function UploadDrawingModal({
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('name', file.name.replace('.pdf', ''));
+    formData.append('name', file.name.replace(DRAWING_FILE_EXTENSIONS_REGEX, ''));
     formData.append('splitPages', String(splitPages));
 
     try {
@@ -113,7 +114,8 @@ export function UploadDrawingModal({
               disabled={isUploading}
               style={{ cursor: 'pointer' }}
             />
-            SPLIT MULTI-PAGE PDFS INTO SEPARATE DRAWINGS
+            SPLIT MULTI-PAGE PDFS INTO SEPARATE DRAWINGS{' '}
+            <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>(PDF ONLY)</span>
           </label>
         </div>
 

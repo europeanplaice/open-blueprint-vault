@@ -82,4 +82,32 @@ describe('PDFThumbnail', () => {
 
     consoleSpy.mockRestore();
   });
+
+  it('renders image thumbnail for PNG files', () => {
+    render(<PDFThumbnail fileUrl="http://example.com/drawing.png" />);
+    const img = screen.getByAltText('Drawing thumbnail');
+    expect(img).toBeInTheDocument();
+    expect(img.tagName).toBe('IMG');
+  });
+
+  it('renders image thumbnail for JPG files', () => {
+    render(<PDFThumbnail fileUrl="http://example.com/drawing.jpg" />);
+    const img = screen.getByAltText('Drawing thumbnail');
+    expect(img).toBeInTheDocument();
+  });
+
+  it('renders placeholder for TIFF files', () => {
+    render(<PDFThumbnail fileUrl="http://example.com/drawing.tiff" />);
+    expect(screen.getByText('TIFF FILE')).toBeInTheDocument();
+  });
+
+  it('renders placeholder for DXF files', () => {
+    render(<PDFThumbnail fileUrl="http://example.com/drawing.dxf" />);
+    expect(screen.getByText('DXF FILE')).toBeInTheDocument();
+  });
+
+  it('renders placeholder for DWG files', () => {
+    render(<PDFThumbnail fileUrl="http://example.com/drawing.dwg" />);
+    expect(screen.getByText('DWG FILE')).toBeInTheDocument();
+  });
 });

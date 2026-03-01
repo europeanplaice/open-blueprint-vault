@@ -26,12 +26,18 @@ interface FileDropzoneProps {
 
 const DEFAULT_LABELS: FileDropzoneLabels = {
   idle: 'UPLOAD DRAWING',
-  active: 'DROP PDF HERE',
-  description: 'Drag and drop a PDF file, or click to select one',
+  active: 'DROP FILE HERE',
+  description: 'Drag and drop a file (PDF, PNG, JPG, TIFF, DXF, DWG), or click to select one',
 };
 
 const DEFAULT_ACCEPT: Accept = {
   'application/pdf': ['.pdf'],
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/tiff': ['.tif', '.tiff'],
+  'application/dxf': ['.dxf'],
+  'application/acad': ['.dwg'],
+  'application/octet-stream': ['.dxf', '.dwg'],
 };
 
 export function FileDropzone({

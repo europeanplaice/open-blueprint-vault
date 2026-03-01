@@ -91,6 +91,68 @@ describe('DrawingPage', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('shows download button for previewable image files (PNG)', async () => {
+    const imageDrawing = { ...mockDrawing, fileUrl: 'http://minio:9000/bucket/file.png' };
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => imageDrawing,
+    });
+
+    render(
+      <ThemeProvider>
+        <DrawingPage params={Promise.resolve({ id: '123' })} />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('DWG-001')).toBeInTheDocument();
+    });
+
+    const downloadBtn = screen.getByText('Download').closest('button');
+    expect(downloadBtn).toBeInTheDocument();
+  });
+
+  it('shows download button for non-previewable files (TIFF)', async () => {
+    const tiffDrawing = { ...mockDrawing, fileUrl: 'http://minio:9000/bucket/file.tiff' };
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => tiffDrawing,
+    });
+
+    render(
+      <ThemeProvider>
+        <DrawingPage params={Promise.resolve({ id: '123' })} />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('DWG-001')).toBeInTheDocument();
+    });
+
+    const downloadBtn = screen.getByText('DOWNLOAD FILE').closest('button');
+    expect(downloadBtn).toBeInTheDocument();
+  });
+
+  it('does not show download button for PDF files', async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockDrawing, // fileUrl is .pdf
+    });
+
+    render(
+      <ThemeProvider>
+        <DrawingPage params={Promise.resolve({ id: '123' })} />
+      </ThemeProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('DWG-001')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+    expect(screen.queryByText('DOWNLOAD FILE')).not.toBeInTheDocument();
+  });
+
   it('handles delete success', async () => {
     (global.fetch as jest.Mock)
       .mockResolvedValueOnce({ // getDrawing

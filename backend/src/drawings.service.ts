@@ -1,9 +1,9 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { S3Service } from './s3.service';
-import { DrawingsGateway } from './drawings/drawings.gateway';
 import { Drawing, DrawingRelation, DrawingRelationType, DrawingRevision, Prisma } from '@prisma/client';
 import { PDFDocument } from 'pdf-lib';
+import * as path from 'path';
 
 export type DrawingWithRelations = Drawing & {
   relationsFrom: (DrawingRelation & { toDrawing: Pick<Drawing, 'id' | 'drawingNumber' | 'name'> })[];
@@ -22,7 +22,6 @@ export class DrawingsService {
   constructor(
     private prisma: PrismaService,
     private s3Service: S3Service,
-    private drawingsGateway: DrawingsGateway,
   ) {}
 
   async findAll(query?: string, page: number = 1, limit: number = 24): Promise<{ data: Drawing[], meta: { total: number, page: number, limit: number, totalPages: number } }> {
@@ -97,22 +96,22 @@ export class DrawingsService {
       },
     });
 
-    // WebSocket notification: creation completed
-    this.drawingsGateway.emitDrawingCreated(drawing);
-
     return drawing;
   }
 
   /**
    * Upload file and create drawing records.
-   * If splitPages=true, split the PDF into one drawing per page.
+   * If splitPages=true and the file is a PDF, split into one drawing per page.
    */
   async createFromUpload(
     file: Express.Multer.File,
     metadata: { drawingNumber?: string; name?: string },
     splitPages: boolean = false,
   ): Promise<Drawing[]> {
-    if (!splitPages) {
+    const isPdf = file.mimetype === 'application/pdf' ||
+      path.extname(file.originalname).toLowerCase() === '.pdf';
+
+    if (!splitPages || !isPdf) {
       // Standard single-file upload
       const fileUrl = await this.s3Service.uploadFile(file);
       const drawing = await this.create({
@@ -137,7 +136,8 @@ export class DrawingsService {
         const buffer = Buffer.from(pdfBytes);
 
         // Build filename (example: original_p1.pdf)
-        const originalName = file.originalname.replace(/\.pdf$/i, '');
+        const ext = path.extname(file.originalname);
+        const originalName = file.originalname.replace(new RegExp(`\\${ext}$`, 'i'), '');
         const filename = `${Date.now()}-${originalName}_p${i + 1}.pdf`;
 
         const fileUrl = await this.s3Service.uploadFileBuffer(buffer, filename, 'application/pdf');
@@ -170,7 +170,6 @@ export class DrawingsService {
       where: { id },
       data,
     });
-    this.drawingsGateway.emitDrawingUpdated(updated);
     return updated;
   }
 
@@ -228,7 +227,6 @@ export class DrawingsService {
     const deleted = await this.prisma.drawing.delete({
       where: { id },
     });
-    this.drawingsGateway.emitDrawingDeleted(id);
     return deleted;
   }
 
@@ -466,12 +464,6 @@ export class DrawingsService {
         revision,
       },
     });
-
-    // Notify update (revision changed)
-    const updatedDrawing = await this.prisma.drawing.findUnique({ where: { id: drawingId } });
-    if (updatedDrawing) {
-      this.drawingsGateway.emitDrawingUpdated(updatedDrawing);
-    }
 
     return newRevision;
   }

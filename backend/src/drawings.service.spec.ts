@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DrawingsService } from './drawings.service';
 import { PrismaService } from './prisma.service';
 import { S3Service } from './s3.service';
-import { DrawingsGateway } from './drawings/drawings.gateway';
 import { Drawing } from '@prisma/client';
 import { PDFDocument } from 'pdf-lib';
 
@@ -20,7 +19,6 @@ describe('DrawingsService', () => {
   let service: DrawingsService;
   let prisma: PrismaService;
   let s3Service: S3Service;
-  let drawingsGateway: DrawingsGateway;
 
   const mockDrawing: Drawing = {
     id: 'test-id',
@@ -31,6 +29,7 @@ describe('DrawingsService', () => {
     fileUrl: 'http://minio/bucket/file.pdf',
     status: 'COMPLETED',
     metadata: null,
+    metadataSources: null,
     revision: null,
   };
 
@@ -56,12 +55,6 @@ describe('DrawingsService', () => {
     deleteFile: jest.fn(),
   };
 
-  const mockDrawingsGateway = {
-    emitDrawingCreated: jest.fn(),
-    emitDrawingUpdated: jest.fn(),
-    emitDrawingDeleted: jest.fn(),
-  };
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -74,17 +67,12 @@ describe('DrawingsService', () => {
           provide: S3Service,
           useValue: mockS3Service,
         },
-        {
-          provide: DrawingsGateway,
-          useValue: mockDrawingsGateway,
-        },
       ],
     }).compile();
 
     service = module.get<DrawingsService>(DrawingsService);
     prisma = module.get<PrismaService>(PrismaService);
     s3Service = module.get<S3Service>(S3Service);
-    drawingsGateway = module.get<DrawingsGateway>(DrawingsGateway);
   });
 
   afterEach(() => {
@@ -160,6 +148,41 @@ describe('DrawingsService', () => {
         fileUrl: 'http://minio/bucket/file.pdf',
       });
     });
+
+    it('should upload image file without splitting', async () => {
+      const imageFile = {
+        buffer: Buffer.from('fake-png'),
+        originalname: 'drawing.png',
+        mimetype: 'image/png',
+      } as Express.Multer.File;
+
+      const imageDrawing = { ...mockDrawing, fileUrl: 'http://minio/bucket/drawing.png' };
+      mockS3Service.uploadFile.mockResolvedValue('http://minio/bucket/drawing.png');
+      const createSpy = jest.spyOn(service, 'create').mockResolvedValue(imageDrawing);
+
+      const result = await service.createFromUpload(imageFile, { drawingNumber: 'D1' }, false);
+
+      expect(result).toEqual([imageDrawing]);
+      expect(s3Service.uploadFile).toHaveBeenCalledWith(imageFile);
+    });
+
+    it('should ignore splitPages for non-PDF files', async () => {
+      const dwgFile = {
+        buffer: Buffer.from('fake-dwg'),
+        originalname: 'drawing.dwg',
+        mimetype: 'application/octet-stream',
+      } as Express.Multer.File;
+
+      const cadDrawing = { ...mockDrawing, fileUrl: 'http://minio/bucket/drawing.dwg' };
+      mockS3Service.uploadFile.mockResolvedValue('http://minio/bucket/drawing.dwg');
+      jest.spyOn(service, 'create').mockResolvedValue(cadDrawing);
+
+      const result = await service.createFromUpload(dwgFile, { drawingNumber: 'D1' }, true);
+
+      // Should NOT attempt PDF splitting
+      expect(result).toHaveLength(1);
+      expect(PDFDocument.load).not.toHaveBeenCalled();
+    });
   });
 
   describe('create', () => {
@@ -181,7 +204,6 @@ describe('DrawingsService', () => {
           status: 'COMPLETED',
         },
       });
-      expect(drawingsGateway.emitDrawingCreated).toHaveBeenCalledWith(mockDrawing);
     });
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "open-blueprint-vault",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Engineering Drawing Vault",
   "scripts": {
     "dev:backend": "cd backend && npm run start:dev",

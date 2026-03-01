@@ -52,7 +52,9 @@ export class S3Service implements OnModuleInit {
 
   // Existing method (for Multer File)
   async uploadFile(file: Express.Multer.File): Promise<string> {
-    const filename = `${Date.now()}-${file.originalname}`;
+    // Multer decodes originalname as Latin-1; re-encode to get correct UTF-8
+    const decodedName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const filename = `${Date.now()}-${decodedName}`;
     return this.uploadFileBuffer(file.buffer, filename, file.mimetype);
   }
 

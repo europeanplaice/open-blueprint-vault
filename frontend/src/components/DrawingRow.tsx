@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Drawing } from '../types/drawing';
+import { getFileExtension } from '../utils/fileType';
 
 export function DrawingRow({
   drawing,
@@ -128,7 +129,20 @@ export function DrawingRow({
           letterSpacing: drawing.name ? 'normal' : '0.05em',
         }}
       >
-        {drawing.name ?? '—'}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          {drawing.name ?? '—'}
+          <span style={{
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+            background: 'var(--bg-base)',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            border: '1px solid var(--border)',
+          }}>
+            {getFileExtension(drawing.fileUrl).toUpperCase().replace('.', '')}
+          </span>
+        </span>
       </td>
 
       {/* Created date */}

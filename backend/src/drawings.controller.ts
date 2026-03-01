@@ -3,13 +3,14 @@ import {
   Get, Post, Patch, Delete,
   Param, Body, Query,
   UseInterceptors, UploadedFile,
-  ParseFilePipe, FileTypeValidator,
+  ParseFilePipe,
   NotFoundException, ConflictException, BadRequestException, Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DrawingsService } from './drawings.service';
 import { S3Service } from './s3.service';
 import { DrawingRelationType } from '@prisma/client';
+import { AcceptedFileTypeValidator } from './accepted-file-type.validator';
 
 @Controller('drawings')
 export class DrawingsController {
@@ -100,14 +101,14 @@ export class DrawingsController {
   }
 
   // ── POST /drawings/upload ─────────────────────────────────────────────────
-  // PDF file upload
+  // File upload (PDF, PNG, JPG, TIFF, DXF, DWG)
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new FileTypeValidator({ fileType: 'application/pdf' }),
+          new AcceptedFileTypeValidator({}),
         ],
       }),
     )
@@ -139,7 +140,7 @@ export class DrawingsController {
   }
 
   // ── POST /drawings/:id/revisions ─────────────────────────────────────────
-  // Create a new revision (PDF upload + revision number + reason)
+  // Create a new revision (file upload + revision number + reason)
   @Post(':id/revisions')
   @UseInterceptors(FileInterceptor('file'))
   async createRevision(
@@ -147,7 +148,7 @@ export class DrawingsController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new FileTypeValidator({ fileType: 'application/pdf' }),
+          new AcceptedFileTypeValidator({}),
         ],
       }),
     )

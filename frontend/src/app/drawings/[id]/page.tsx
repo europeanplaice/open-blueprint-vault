@@ -3,13 +3,39 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useSocket } from '../../../components/SocketProvider';
 import { Drawing } from '../../../types/drawing';
 import { ThemeToggle } from '../../../components/ThemeToggle';
 import { EditDrawingModal } from '../../../components/EditDrawingModal';
 import { RevisionUploadModal } from '../../../components/RevisionUploadModal';
+import { getFileCategory, isInlinePreviewable, getFileExtension } from '../../../utils/fileType';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+/** Extract a human-readable filename from a URL, decoding percent-encoded characters */
+function extractFilename(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const encoded = pathname.split('/').pop() || 'download';
+    return decodeURIComponent(encoded);
+  } catch {
+    return 'download';
+  }
+}
+
+/** Fetch a file as blob and trigger a browser download */
+async function downloadFile(url: string) {
+  const effectiveUrl = url.replace('http://minio:9000', 'http://localhost:9000');
+  const res = await fetch(effectiveUrl);
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = extractFilename(url);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(blobUrl);
+}
 
 /* ─── Fetch Helper ───────────────────────────────────────────────────────── */
 async function getDrawing(id: string): Promise<Drawing | null> {
@@ -32,7 +58,6 @@ async function getDrawing(id: string): Promise<Drawing | null> {
 /* ─── Client Component ───────────────────────────────────────────────────── */
 export default function DrawingPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const socket = useSocket();
   const [drawing, setDrawing] = useState<Drawing | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -51,24 +76,6 @@ export default function DrawingPage({ params }: { params: Promise<{ id: string }
       setLoading(false);
     });
   }, [params]);
-
-  // WebSocket listener (detail page)
-  useEffect(() => {
-    if (!socket || !drawing) return;
-
-    const handleDrawingUpdated = (updated: Drawing) => {
-      if (updated.id === drawing.id) {
-        // Update state only for currently displayed drawing
-        setDrawing(updated);
-      }
-    };
-
-    socket.on('drawing.updated', handleDrawingUpdated);
-
-    return () => {
-      socket.off('drawing.updated', handleDrawingUpdated);
-    };
-  }, [socket, drawing]);
 
   const handleUpdate = async (id: string, data: Partial<Drawing>) => {
     try {
@@ -266,8 +273,8 @@ export default function DrawingPage({ params }: { params: Promise<{ id: string }
 
       {/* Main Content - Dashboard Layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left: PDF Viewer */}
-        <div style={{ flex: 1, background: '#000', position: 'relative' }}>
+        {/* Left: File Viewer */}
+        <div style={{ flex: 1, background: '#000', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {viewingPdfUrl && (
             <button
               onClick={() => setViewingPdfUrl(null)}
@@ -291,11 +298,111 @@ export default function DrawingPage({ params }: { params: Promise<{ id: string }
               BACK TO LATEST
             </button>
           )}
-          <iframe
-            src={displayedPdfUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="PDF Viewer"
-          />
+          {(() => {
+            const fileUrl = displayedPdfUrl || '';
+            const category = getFileCategory(fileUrl);
+            const previewable = isInlinePreviewable(fileUrl);
+
+            if (category === 'pdf') {
+              return (
+                <iframe
+                  src={displayedPdfUrl}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title="PDF Viewer"
+                />
+              );
+            }
+
+            if (category === 'image' && previewable) {
+              const effectiveUrl = fileUrl.replace('http://minio:9000', 'http://localhost:9000');
+              return (
+                <>
+                  <img
+                    src={effectiveUrl}
+                    alt="Drawing"
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <button
+                    onClick={() => downloadFile(fileUrl)}
+                    style={{
+                      position: 'absolute',
+                      bottom: '16px',
+                      right: '16px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      background: 'var(--accent)',
+                      color: '#0C0E13',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      letterSpacing: '0.1em',
+                      border: 'none',
+                      borderRadius: '4px',
+                      textTransform: 'uppercase',
+                      cursor: 'pointer',
+                      opacity: 0.85,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+                  >
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download
+                  </button>
+                </>
+              );
+            }
+
+            // Non-previewable: TIFF images and CAD files
+            return (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '20px',
+                color: 'var(--text-muted)',
+              }}>
+                <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <span style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '13px',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                }}>
+                  {category === 'cad' ? 'CAD FILE' : 'IMAGE FILE'} — PREVIEW NOT AVAILABLE
+                </span>
+                <button
+                  onClick={() => downloadFile(fileUrl)}
+                  style={{
+                    padding: '10px 24px',
+                    background: 'var(--accent)',
+                    color: '#0C0E13',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    letterSpacing: '0.1em',
+                    border: 'none',
+                    borderRadius: '4px',
+                    textTransform: 'uppercase',
+                    cursor: 'pointer',
+                  }}
+                >
+                  DOWNLOAD FILE
+                </button>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right: Metadata Panel */}
@@ -501,9 +608,23 @@ export default function DrawingPage({ params }: { params: Promise<{ id: string }
                 <dd style={{
                     fontSize: '16px',
                     color: 'var(--text-primary)',
-                    margin: 0
+                    margin: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                 }}>
                     {drawing.name || '—'}
+                    <span style={{
+                        fontSize: '11px',
+                        fontFamily: 'var(--font-mono)',
+                        color: 'var(--text-muted)',
+                        background: 'var(--bg-base)',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                    }}>
+                        {getFileExtension(drawing.fileUrl).toUpperCase().replace('.', '')}
+                    </span>
                 </dd>
              </div>
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { PDFThumbnail } from './PDFThumbnail';
 import { Drawing } from '../types/drawing';
+import { getFileExtension } from '../utils/fileType';
 
 interface DrawingCardProps {
   drawing: Drawing;
@@ -135,21 +136,43 @@ export function DrawingCard({ drawing, onClick, onDelete }: DrawingCardProps) {
         </div>
 
         {/* Name */}
-        <h3
+        <div
           style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: '13px',
-            fontWeight: '500',
-            color: 'var(--text-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
             margin: '0 0 8px 0',
-            whiteSpace: 'nowrap',
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
           }}
           title={drawing.name || 'Untitled'}
         >
-          {drawing.name || 'Untitled'}
-        </h3>
+          <h3
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '13px',
+              fontWeight: '500',
+              color: 'var(--text-primary)',
+              margin: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {drawing.name || 'Untitled'}
+          </h3>
+          <span style={{
+            fontSize: '9px',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+            background: 'var(--bg-base)',
+            padding: '1px 4px',
+            borderRadius: '4px',
+            border: '1px solid var(--border)',
+            flexShrink: 0,
+          }}>
+            {getFileExtension(drawing.fileUrl).toUpperCase().replace('.', '')}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -74,7 +74,25 @@ describe('S3Service', () => {
 
       expect(s3ClientMock.send).toHaveBeenCalledWith(expect.any(PutObjectCommand));
       expect(result).toContain('http://localhost:9000/drawings/');
-      expect(result).toContain(mockFile.originalname);
+      expect(result).toContain('test.pdf');
+    });
+
+    it('should decode latin1-encoded Japanese filename from multer', async () => {
+      // Multer encodes UTF-8 filenames as Latin-1 bytes
+      const utf8Name = '図面.pdf';
+      const latin1Name = Buffer.from(utf8Name, 'utf8').toString('latin1');
+      const mockFile = {
+        buffer: Buffer.from('test'),
+        originalname: latin1Name,
+        mimetype: 'application/pdf',
+      } as Express.Multer.File;
+
+      s3ClientMock.send.mockResolvedValueOnce({});
+
+      const result = await service.uploadFile(mockFile);
+
+      expect(result).toContain(utf8Name);
+      expect(result).not.toContain(latin1Name);
     });
   });
 });

@@ -30,7 +30,7 @@ export function RevisionUploadModal({ isOpen, drawingId, onClose, onSuccess }: R
       return;
     }
     if (!file) {
-      setError('Please select a PDF file');
+      setError('Please select a file');
       return;
     }
 
@@ -191,7 +191,7 @@ export function RevisionUploadModal({ isOpen, drawingId, onClose, onSuccess }: R
                 letterSpacing: '0.1em',
               }}
             >
-              NEW PDF FILE *
+              NEW FILE *
             </label>
             {file ? (
               <div
